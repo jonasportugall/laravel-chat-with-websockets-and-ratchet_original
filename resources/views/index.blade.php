@@ -112,15 +112,19 @@
                             user_image = '<img src="{{ asset('images/no-image.png') }}" class="rounded-circle user-image me-2" />';
                         }
 
-                        html += '<li class="list-group-item">';
-                        html += '<div class="row align-items-center">';
-                        html += '<div class="col-9 d-flex align-items-center">' + user_image + data.data[count].name + '</div>';
-                        html += '<div class="col-3 text-end">';
-                        html += '<button type="button" name="send_request" class="btn btn-primary btn-sm">';
-                        html += '<i class="fas fa-paper-plane"></i></button>';
-                        html += '</div>';
-                        html += '</div>';
-                        html += '</li>';
+                        html += `
+                            <li class="list-group-item">
+                                <div class="row align-items-center">
+                                    <div class="col-9 d-flex align-items-center">
+                                        ${user_image}${data.data[count].name}
+                                    </div>
+                                    <div class="col-3 text-end">
+                                        <button type="button" name="send_request" class="btn btn-primary btn-sm" onclick="send_request(this, ${from_user_id}, ${data.data[count].id})">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </li>`;
                     }
                     html += '</ul>';
                 } else {
@@ -128,6 +132,9 @@
                 }
 
                 document.getElementById('search_people_area').innerHTML = html;
+            }
+            if(data.response_from_user_chat_request){
+                search_user( from_user_id, getElementById('search_people').value );
             }
         };
 
@@ -153,6 +160,16 @@
             }else{
                 load_unconnected_user(from_user_id);
             }
+        }
+
+        function send_request(element, from_user_id,to_user_id){
+            var data = {
+                from_user_id : from_user_id,
+                to_user_id : to_user_id,
+                type : 'request_chat_user'
+            }
+            element.disabled = true;
+            conn.send( JSON.stringify(data) );
         }
 
         @endif

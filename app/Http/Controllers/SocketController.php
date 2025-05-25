@@ -73,12 +73,24 @@ class SocketController extends Controller implements MessageComponentInterface
                 $sub_data = array();
 
                 foreach ($user_data as $row) {
-                    $sub_data[] = array(
-                        'name'       => $row['name'],
-                        'id'         => $row['id'],
-                        'status'     => $row['user_status'],
-                        'image' => $row['user_image']
-                    );
+
+                    $chat_request = Chat_request::select('id')
+                                            ->where(function($query) use ($data,$row){
+                                                $query->where('from_user_id',$data->from_user_id)->where('to_user_id',$row->id);
+                                            })
+                                            ->orWhere(function($query) use ($data,$row){
+                                                $query->where('from_user_id',$row->id)->where('to_user_id',$data->from_user_id);
+                                            })
+                                            ->get();
+
+                    if($chat_request->count() == 0){
+                        $sub_data[] = array(
+                            'name'       => $row['name'],
+                            'id'         => $row['id'],
+                            'status'     => $row['user_status'],
+                            'image' => $row['user_image']
+                        );
+                    }
                 }
             
                 $sender_connection_id = User::select('connection_id')
@@ -94,8 +106,23 @@ class SocketController extends Controller implements MessageComponentInterface
                     }
                 }
             }
-            
-            
+
+            if($data->type == 'request_chat_user'){
+                $chat_request = new Chat_request;
+                $chat_request->from_user_id = $data->from_user_id;
+                $chat_request->to_user_id   = $data->to_user_id;
+                $chat_request->status = 'Pending';
+                $chat_request->save();
+
+                $sender_connection_id = User::select('connection_id')->where('id',$data->from_user_id)->get();
+
+                foreach($this->clients as $client){
+                    if( $client->resourceId == $sender_connection_id[0]->connection_id ){
+                        $send_data['response_from_user_chat_request'] = true;
+                        $client->send(json_encode($send_data));
+                    }
+                }
+            }
         }
     }
 
