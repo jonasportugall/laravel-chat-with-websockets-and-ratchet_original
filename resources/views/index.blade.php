@@ -69,12 +69,24 @@
             <div class="user-list-title">
                 <h4>Usuários disponíveis para conexão</h4>
             </div>
+
             <div class="card-header">
-                <input type="text" placeholder="Search user..." autocomplete="off" onkeyup="search_user('{{ Auth::id()}}', this.value);">
+                <input type="text" id="search_people" placeholder="Search user..." autocomplete="off" onkeyup="search_user('{{ Auth::id() }}', this.value);">
             </div>
+
             <div id="search_people_area">
                 <p>Carregando usuários...</p>
             </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <b>Notification</b>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group" id="notification_area"></ul>
+                </div>
+            </div>
+
         @else
             <p>Você não está logado.</p>
             <a href="{{ url('/login') }}" class="btn btn-primary">Fazer Login</a>
@@ -86,13 +98,13 @@
     <script>
         @if(Auth::check())
         var from_user_id = "{{ Auth::user()->id }}";
-        var to_user_id = "";
 
         var conn = new WebSocket('ws://127.0.0.1:8090/?token={{ auth()->user()->token }}');
 
         conn.onopen = function(e){
             console.log("Conexão WebSocket estabelecida");
             load_unconnected_user(from_user_id);
+            load_unread_notification(from_user_id);
         };
 
         conn.onmessage = function(e){
@@ -104,13 +116,9 @@
                 if(data.data.length > 0){
                     html += '<ul class="list-group">';
                     for (var count = 0; count < data.data.length; count++) {
-                        var user_image = '';
-
-                        if (data.data[count].user_image != null) {
-                            user_image = '<img src="' + data.data[count].user_image + '" class="rounded-circle user-image me-2" />';
-                        } else {
-                            user_image = '<img src="{{ asset('images/no-image.png') }}" class="rounded-circle user-image me-2" />';
-                        }
+                        var user_image = data.data[count].user_image
+                            ? `<img src="${data.data[count].user_image}" class="rounded-circle user-image me-2" />`
+                            : `<img src="{{ asset('images/no-image.png') }}" class="rounded-circle user-image me-2" />`;
 
                         html += `
                             <li class="list-group-item">
@@ -119,7 +127,7 @@
                                         ${user_image}${data.data[count].name}
                                     </div>
                                     <div class="col-3 text-end">
-                                        <button type="button" name="send_request" class="btn btn-primary btn-sm" onclick="send_request(this, ${from_user_id}, ${data.data[count].id})">
+                                        <button type="button" class="btn btn-primary btn-sm" onclick="send_request(this, ${from_user_id}, ${data.data[count].id})">
                                             <i class="fas fa-paper-plane"></i>
                                         </button>
                                     </div>
@@ -133,45 +141,84 @@
 
                 document.getElementById('search_people_area').innerHTML = html;
             }
+
             if(data.response_from_user_chat_request){
-                search_user( from_user_id, getElementById('search_people').value );
+                search_user(from_user_id, document.getElementById('search_people').value);
+                load_unread_notification(from_user_id);
+            }
+
+            if(data.response_to_user_chat_request){
+                load_unread_notification(data.user_id);
+            }
+
+            if(data.response_load_notification){
+                var html = '';
+                for (var count = 0; count < data.data.length; count++) {
+                    var user_image = data.data[count].user_image
+                        ? `<img src="${data.data[count].user_image}" class="rounded-circle user-image me-2" />`
+                        : `<img src="{{ asset('images/no-image.png') }}" class="rounded-circle user-image me-2" />`;
+
+                    html += `
+                        <li class="list-group-item">
+                            <div class="row">
+                                <div class="col-8">${user_image}${data.data[count].name}</div>
+                                <div class="col-4 text-end">`;
+
+                    if(data.data[count].notification_type === 'Send Request'){
+                        html += data.data[count].status === 'Pending'
+                            ? '<button class="btn btn-warning btn-sm">Request Send</button>'
+                            : '<button class="btn btn-danger btn-sm">Request Rejected</button>';
+                    } else {
+                        if(data.data[count].status === 'Pending'){
+                            html += '<button class="btn btn-warning btn-sm me-1">AAAAA</button>';
+                            html += '<button class="btn btn-success btn-sm">BBBBB</button>';
+                        } else {
+                            html += '<button class="btn btn-danger btn-sm">Request Rejected</button>';
+                        }
+                    }
+
+                    html += `</div></div></li>`;
+                }
+
+                document.getElementById('notification_area').innerHTML = html;
             }
         };
 
         function load_unconnected_user(from_user_id){
-            var data = {
+            conn.send(JSON.stringify({
                 from_user_id: from_user_id,
                 type: 'request_load_unconnected_user'
-            };
-
-            conn.send(JSON.stringify(data));
+            }));
         }
 
-        function search_user(from_user_id,search_query){
+        function search_user(from_user_id, search_query){
             if(search_query.length > 0){
-                var data = {
-                    from_user_id : from_user_id,
-                    search_query : search_query,
-                    type : 'request_search_user'
-                };
-
-                conn.send(JSON.stringify(data));
-
-            }else{
+                conn.send(JSON.stringify({
+                    from_user_id: from_user_id,
+                    search_query: search_query,
+                    type: 'request_search_user'
+                }));
+            } else {
                 load_unconnected_user(from_user_id);
             }
         }
 
-        function send_request(element, from_user_id,to_user_id){
-            var data = {
-                from_user_id : from_user_id,
-                to_user_id : to_user_id,
-                type : 'request_chat_user'
-            }
+        function send_request(element, from_user_id, to_user_id){
             element.disabled = true;
-            conn.send( JSON.stringify(data) );
+            conn.send(JSON.stringify({
+                from_user_id: from_user_id,
+                to_user_id: to_user_id,
+                type: 'request_chat_user'
+            }));
         }
 
+        function load_unread_notification(user_id){
+            var data = {
+                user_id : user_id,
+                type : 'request_load_unread_notification'
+            };
+            conn.send(JSON.stringify( data ));
+        }
         @endif
     </script>
 

@@ -33,6 +33,7 @@ class SocketController extends Controller implements MessageComponentInterface
 
     public function onMessage(ConnectionInterface $conn, $msg){
         $data = json_decode( $msg );
+
         if($data->type){
             if($data->type == 'request_load_unconnected_user'){
                 $user_data = User::select('id','name','user_status','user_image')
@@ -116,12 +117,69 @@ class SocketController extends Controller implements MessageComponentInterface
 
                 $sender_connection_id = User::select('connection_id')->where('id',$data->from_user_id)->get();
 
+                $receiver_connection_id = User::select('connection_id')->where('id',$data->to_user_id)->get();
+
                 foreach($this->clients as $client){
                     if( $client->resourceId == $sender_connection_id[0]->connection_id ){
                         $send_data['response_from_user_chat_request'] = true;
                         $client->send(json_encode($send_data));
                     }
+                    if($client->resourceId == $receiver_connection_id[0]->connection_id){
+                        $send_data['user_id'] = $data->to_user_id;
+                        $send_data['response_to_user_chat_request'] = true;
+                        $client->send(json_encode($send_data));
+                    }
                 }
+            }
+
+            if($data->type == 'request_load_unread_notification'){
+                $notification_data = Chat_request::select('id','from_user_id','to_user_id','status')
+                                                ->where('status','<>','Approve')
+                                                ->where(function($query) use ($data){
+                                                    $query->where('from_user_id',$data->user_id)->orWhere('to_user_id',$data->user_id);
+                                                })
+                                                ->orderBy('id','ASC')
+                                                ->get();
+
+
+            $sub_data = array();
+            foreach($notification_data as $row){
+                $user_id = '';
+                $notification_type = '';
+                if($row->from_user_id == $data->user_id){
+                    $user_id = $row->to_user_id;
+                    $notification_type = 'Send Request';
+                }else{
+                    $user_id = $row->from_user_id;
+                    $notification_type = 'Receive Request';
+                }
+
+                $user_data = User::select('name','user_image')->where('id',$user_id)->first();
+
+                $sub_data[] = array(
+                    'id'    => $row->id,
+                    'from_user_id'  => $row->from_user_id,
+                    'to_user_id'  => $row->to_user_id,
+                    'name'=>  $user_data->name,
+                    'image'=>$user_data->user_image,
+                   'notification_type' => $notification_type,
+                   'status' => $row->status
+
+                );
+             }
+
+            //print_r($data);
+
+            $sender_connection_id = User::select('connection_id')->where('id',$data->user_id)->get();
+
+                foreach($this->clients as $client){
+                    if( $client->resourceId == $sender_connection_id[0]->connection_id ){
+                        $send_data['response_load_notification'] = true;
+                        $send_data['data'] = $sub_data; 
+                        $client->send(json_encode($send_data));
+                    }
+                }
+
             }
         }
     }
