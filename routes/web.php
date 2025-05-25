@@ -15,3 +15,4 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/profile',[AuthController::class, 'profile'])->name('profile');
+Route::get('/index',[AuthController::class, 'index'])->name('index');

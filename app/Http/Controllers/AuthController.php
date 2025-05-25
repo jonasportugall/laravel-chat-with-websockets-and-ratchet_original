@@ -23,13 +23,13 @@ class AuthController extends Controller
             'name'           => $request->name,
             'email'          => $request->email,
             'password'       => Hash::make($request->password),
-            'token'          => Str::random(60),
+            'token'          => md5(uniqid()),
             'connection_id'  => 0,
             'user_image'     => $request->user_image ?? '',
             'user_status'    => 'Online',
         ]);
 
-        return view('index');
+        return redirect('login');
     }
 
     public function login(Request $request)
@@ -51,10 +51,10 @@ class AuthController extends Controller
 
         $user->update([
             'user_status' => 'Online',
-            'token' => Str::random(60),
+            'token' => md5(uniqid()),
         ]);
 
-        return view('/index');
+        return redirect('index');
     }
     public function logout(Request $request)
     {
@@ -72,6 +72,10 @@ class AuthController extends Controller
             return view('profile',compact('profile'));
         }
         return redirect('login');
+    }
+
+    public function index(){
+        return view('index');
     }
 
 
