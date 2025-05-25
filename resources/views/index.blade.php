@@ -69,6 +69,9 @@
             <div class="user-list-title">
                 <h4>Usuários disponíveis para conexão</h4>
             </div>
+            <div class="card-header">
+                <input type="text" placeholder="Search user..." autocomplete="off" onkeyup="search_user('{{ Auth::id()}}', this.value);">
+            </div>
             <div id="search_people_area">
                 <p>Carregando usuários...</p>
             </div>
@@ -95,7 +98,7 @@
         conn.onmessage = function(e){
             var data = JSON.parse(e.data);
 
-            if(data.response_load_unconnected_user){
+            if(data.response_load_unconnected_user || data.response_search_user){
                 var html = '';
 
                 if(data.data.length > 0){
@@ -136,6 +139,22 @@
 
             conn.send(JSON.stringify(data));
         }
+
+        function search_user(from_user_id,search_query){
+            if(search_query.length > 0){
+                var data = {
+                    from_user_id : from_user_id,
+                    search_query : search_query,
+                    type : 'request_search_user'
+                };
+
+                conn.send(JSON.stringify(data));
+
+            }else{
+                load_unconnected_user(from_user_id);
+            }
+        }
+
         @endif
     </script>
 
