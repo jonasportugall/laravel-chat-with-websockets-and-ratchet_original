@@ -142,44 +142,62 @@ class SocketController extends Controller implements MessageComponentInterface
                                                 ->get();
 
 
-            $sub_data = array();
-            foreach($notification_data as $row){
-                $user_id = '';
-                $notification_type = '';
-                if($row->from_user_id == $data->user_id){
-                    $user_id = $row->to_user_id;
-                    $notification_type = 'Send Request';
-                }else{
-                    $user_id = $row->from_user_id;
-                    $notification_type = 'Receive Request';
-                }
+                    $sub_data = array();
+                    foreach($notification_data as $row){
+                        $user_id = '';
+                        $notification_type = '';
+                        if($row->from_user_id == $data->user_id){
+                            $user_id = $row->to_user_id;
+                            $notification_type = 'Send Request';
+                        }else{
+                            $user_id = $row->from_user_id;
+                            $notification_type = 'Receive Request';
+                        }
 
-                $user_data = User::select('name','user_image')->where('id',$user_id)->first();
+                        $user_data = User::select('name','user_image')->where('id',$user_id)->first();
 
-                $sub_data[] = array(
-                    'id'    => $row->id,
-                    'from_user_id'  => $row->from_user_id,
-                    'to_user_id'  => $row->to_user_id,
-                    'name'=>  $user_data->name,
-                    'image'=>$user_data->user_image,
-                   'notification_type' => $notification_type,
-                   'status' => $row->status
+                        $sub_data[] = array(
+                            'id'    => $row->id,
+                            'from_user_id'  => $row->from_user_id,
+                            'to_user_id'  => $row->to_user_id,
+                            'name'=>  $user_data->name,
+                            'image'=>$user_data->user_image,
+                        'notification_type' => $notification_type,
+                        'status' => $row->status
 
-                );
-             }
+                        );
+                    }
 
-            //print_r($data);
+                    //print_r($data);
 
-            $sender_connection_id = User::select('connection_id')->where('id',$data->user_id)->get();
+                    $sender_connection_id = User::select('connection_id')->where('id',$data->user_id)->get();
+
+                        foreach($this->clients as $client){
+                            if( $client->resourceId == $sender_connection_id[0]->connection_id ){
+                                $send_data['response_load_notification'] = true;
+                                $send_data['data'] = $sub_data; 
+                                $client->send(json_encode($send_data));
+                            }
+                        }
+
+            }
+
+            if($data->type == 'request_process_chat_request'){
+                Chat_request::where('id',$data->chat_request_id)->update(['status'=>$data->action]);
+                $sender_connection_id = User::select('connection_id')->where('id',$data->from_user_id)->get();
+                $receiver_connection_id = User::select('connection_id')->where('id',$data->to_user_id)->get();
 
                 foreach($this->clients as $client){
+                    $send_data['response_process_chat_request'] = true;
                     if( $client->resourceId == $sender_connection_id[0]->connection_id ){
-                        $send_data['response_load_notification'] = true;
-                        $send_data['data'] = $sub_data; 
-                        $client->send(json_encode($send_data));
+                        $send_data['data'] = $data->from_user_id;
                     }
-                }
+                    if( $client->resourceId == $receiver_connection_id[0]->connection_id ){
+                        $send_data['data'] = $data->to_user_id;
+                    }
 
+                    $client->send( json_encode( $send_data ) );
+                }
             }
         }
     }

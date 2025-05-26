@@ -150,6 +150,9 @@
             if(data.response_to_user_chat_request){
                 load_unread_notification(data.user_id);
             }
+            if(data.response_process_chat_request){
+                load_unread_notification(data.data);
+            }
 
             if(data.response_load_notification){
                 var html = '';
@@ -170,8 +173,8 @@
                             : '<button class="btn btn-danger btn-sm">Request Rejected</button>';
                     } else {
                         if(data.data[count].status === 'Pending'){
-                            html += '<button class="btn btn-warning btn-sm me-1">AAAAA</button>';
-                            html += '<button class="btn btn-success btn-sm">BBBBB</button>';
+                            html += '<button class="btn btn-warning btn-sm me-1" onclick="process_chat_request('+data.data[count].id+','+data.data[count].from_user_id+','+data.data[count].to_user_id+',`Reject`)">NO</button>';
+                            html += '<button class="btn btn-success btn-sm" onclick="process_chat_request('+data.data[count].id+','+data.data[count].from_user_id+','+data.data[count].to_user_id+',`Approve`)">YES</button>';
                         } else {
                             html += '<button class="btn btn-danger btn-sm">Request Rejected</button>';
                         }
@@ -219,6 +222,19 @@
             };
             conn.send(JSON.stringify( data ));
         }
+
+        function process_chat_request(chat_request_id, from_user_id,to_user_id,action){
+            var data = {
+                chat_request_id : chat_request_id,
+                from_user_id : from_user_id,
+                to_user_id : to_user_id,
+                action : to_user_id,
+                type: 'request_process_chat_request'
+            };
+
+            conn.send( JSON.stringify(data) );
+        }
+
         @endif
     </script>
 
