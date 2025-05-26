@@ -87,6 +87,28 @@
                 </div>
             </div>
 
+            <div class="card mt-4">
+                <div class="card-header">
+                    <b>Connected Users</b>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group" id="user_list">
+
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <div class="" id="chat_header">Chat Header</div>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group" id="chat_area">
+
+                    </ul>
+                </div>
+            </div>
+
         @else
             <p>Você não está logado.</p>
             <a href="{{ url('/login') }}" class="btn btn-primary">Fazer Login</a>
@@ -105,6 +127,7 @@
             console.log("Conexão WebSocket estabelecida");
             load_unconnected_user(from_user_id);
             load_unread_notification(from_user_id);
+            load_connected_chat_user(from_user_id);
         };
 
         conn.onmessage = function(e){
@@ -152,6 +175,28 @@
             }
             if(data.response_process_chat_request){
                 load_unread_notification(data.data);
+                load_connected_chat_user(data.data);
+            }
+
+            if (data.response_connected_chat_user){
+                var html = '';
+                for (var count = 0; count < data.data.length; count++) {
+                    var user_image = data.data[count].user_image
+                        ? `<img src="${data.data[count].user_image}" class="rounded-circle user-image me-2" />`
+                        : `<img src="/images/no-image.png" class="rounded-circle user-image me-2" />`; // Use caminho relativo se estiver fora do Blade
+
+                    html += `
+                        <li class="list-group-item">
+                            <div class="row">
+                                <div class="col-8">${user_image}${data.data[count].name}</div>
+                                <div class="col-4 text-end">
+                                    <!-- Aqui você pode adicionar botão de chat, etc. -->
+                                </div>
+                            </div>
+                        </li>`;
+                }
+
+                document.getElementById('user_list').innerHTML = html;
             }
 
             if(data.response_load_notification){
@@ -232,6 +277,14 @@
                 type: 'request_process_chat_request'
             };
 
+            conn.send( JSON.stringify(data) );
+        }
+
+        function load_connected_chat_user(from_user_id){
+            var data = {
+                from_user_id: from_user_id,
+                type: 'request_connected_chat_user'
+            };
             conn.send( JSON.stringify(data) );
         }
 
